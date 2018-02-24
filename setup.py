@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 
 
 setup(
@@ -7,6 +7,6 @@ setup(
     description="Mindsight Stack Sample Collector",
     url="https://github.com/MindsightCo/python-sampler",
     license="Apache 2.0",
-    packages=find_packages(),
+    packages=["sampler"],
     install_requires=["requests"]
 )

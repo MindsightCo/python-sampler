@@ -3,6 +3,22 @@ import requests, requests.exceptions
 import signal
 
 
+s = None
+
+def start(server_url, interval=0.01, cache_depth=10000):
+    if s is not None:
+        s._enabled = True
+        s.start()
+        return
+
+    s = Sampler(server_url, interval=interval, cache_depth=cache_depth)
+    s.start()
+
+
+def stop():
+    s._enabled = False
+
+
 class Sampler(object):
     def __init__(self, server_url, interval=0.01, cache_depth=10000):
         self.server_url = server_url
