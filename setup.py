@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name="mindsight-sampler",
-    version="0.1",
+    version="0.2",
     description="Mindsight Stack Sample Collector",
     url="https://github.com/MindsightCo/python-sampler",
     license="Apache 2.0",

@@ -5,14 +5,14 @@ import signal
 
 s = None
 
-def start(server_url, interval=0.01, cache_depth=10000):
+def start(server_url, modules, interval=0.01, send_after=1000):
     global s
     if s is not None:
         s._enabled = True
         s.start()
         return
 
-    s = Sampler(server_url, interval=interval, cache_depth=cache_depth)
+    s = Sampler(server_url, modules, interval=interval, send_after=send_after)
     s.start()
 
 
@@ -22,11 +22,13 @@ def stop():
 
 
 class Sampler(object):
-    def __init__(self, server_url, interval=0.01, cache_depth=10000):
+    def __init__(self, server_url, modules, interval=0.01, send_after=1000):
         self.server_url = server_url
+        self.modules = tuple(modules)
         self.interval = interval
-        self.cache_depth = cache_depth
-        self._cache = []
+        self.send_after = send_after
+        self._samples = {}
+        self._count = 0
         self._enabled = True
 
 
@@ -34,32 +36,41 @@ class Sampler(object):
         if not self._enabled:
             return
 
-        stack = []
         while frame is not None:
             formatted_frame = '{}.{}'.format(frame.f_globals.get('__name__'),
                 frame.f_code.co_name)
-            stack.insert(0, formatted_frame)
+            
+            if formatted_frame.startswith(self.modules):
+                if formatted_frame not in self._samples:
+                    self._samples[formatted_frame] = 1
+                else:
+                    self._samples[formatted_frame] += 1
+                break
+
             frame = frame.f_back
 
-        self._cache.append(stack)
+        self._count += 1
 
-        if len(self._cache) >= self.cache_depth:
+        if self._count >= self.send_after:
+            self._count = 0
             self._send_samples()
 
         signal.setitimer(signal.ITIMER_VIRTUAL, self.interval, 0)
 
 
     def _send_samples(self):
+        if len(self._samples) == 0:
+            return
+
         try:
             url = "{}/samples/".format(self.server_url)
             h = {"Content-type": "application/json"}
-            data = json.dumps(self._cache)
-            r = requests.post(url, headers=h, data=data, timeout=0.001)
+            data = json.dumps(self._samples)
+            r = requests.post(url, headers=h, data=data, timeout=0.01)
             r.raise_for_status()
+            self._samples = {}
         except requests.exceptions.RequestException as e:
             print(e)
-
-        self._cache = []
 
 
     def start(self):
