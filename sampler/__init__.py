@@ -5,31 +5,37 @@ import signal
 
 s = None
 
-def start(server_url, modules, interval=0.01, send_after=1000):
+
+def start(server_url, project, modules, environment=None, interval=0.01, send_after=1000):
     global s
     if s is not None:
         s._enabled = True
         s.start()
         return
 
-    s = Sampler(server_url, modules, interval=interval, send_after=send_after)
+    s = Sampler(server_url, project, modules, environment=environment, interval=interval, send_after=send_after)
     s.start()
 
 
 def stop():
     global s
-    s._enabled = False
+    s.stop()
 
 
 class Sampler(object):
-    def __init__(self, server_url, modules, interval=0.01, send_after=1000):
+    def __init__(self, server_url, project, modules, environment=None, interval=0.01, send_after=1000):
         self.server_url = server_url
+        self.project = project
         self.modules = tuple(modules)
+        self.environment = environment
         self.interval = interval
         self.send_after = send_after
         self._samples = {}
         self._count = 0
         self._enabled = True
+        self.url = "{}/samples/?project={}".format(server_url, project)
+        if environment is not None:
+            self.url += "&environment={}".format(environment)
 
 
     def _sample(self, signum, frame):
@@ -63,10 +69,9 @@ class Sampler(object):
             return
 
         try:
-            url = "{}/samples/".format(self.server_url)
             h = {"Content-type": "application/json"}
             data = json.dumps(self._samples)
-            r = requests.post(url, headers=h, data=data, timeout=0.01)
+            r = requests.post(self.url, headers=h, data=data, timeout=0.01)
             r.raise_for_status()
             self._samples = {}
         except requests.exceptions.RequestException as e:
@@ -76,3 +81,7 @@ class Sampler(object):
     def start(self):
         signal.signal(signal.SIGVTALRM, self._sample)
         signal.setitimer(signal.ITIMER_VIRTUAL, self.interval, 0)
+
+
+    def stop(self):
+        self._enabled = False
